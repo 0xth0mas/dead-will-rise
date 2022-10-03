@@ -9,6 +9,12 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 
+
+/** Dead Will Rise presented by Gutter Punks
+  * Contract by 0xth0mas (0xjustadev)
+  * Gas optimization credit 0xDelco
+*/
+
 contract DeadWillRise is ERC721A, Ownable {
 
     event IndividualDailyActivity(uint256 tokenId, uint256 currentDay, uint256 riskChoice, uint256 activityOutcome);
@@ -62,7 +68,23 @@ contract DeadWillRise is ERC721A, Ownable {
     uint32 public constant INDIVIDUAL_BASE_RATE = 100;
     uint32 public constant INDIVIDUAL_VARIABLE_RATE = 50;
     uint32 public constant INDIVIDUAL_MAXIMUM_LUCK = 1000; // luck used to determine outcome of activities
-    uint32 public constant TOTAL_MAXIMUM_LUCK = INDIVIDUAL_MAXIMUM_LUCK * 10; // luck used to determine outcome of activities
+    uint32 public constant TOTAL_MAXIMUM_LUCK = 10000; // luck used to determine outcome of activities
+    uint32 public constant RISK_LOW_OUTCOME_LARGE = 9900;
+    uint32 public constant RISK_LOW_OUTCOME_MEDIUM = 9500;
+    uint32 public constant RISK_LOW_OUTCOME_SMALL = 100;
+    uint32 public constant RISK_MEDIUM_OUTCOME_LARGE = 9000;
+    uint32 public constant RISK_MEDIUM_OUTCOME_MEDIUM = 7500;
+    uint32 public constant RISK_MEDIUM_OUTCOME_SMALL = 1000;
+    uint32 public constant RISK_HIGH_OUTCOME_LARGE = 7500;
+    uint32 public constant RISK_HIGH_OUTCOME_MEDIUM = 5000;
+    uint32 public constant RISK_HIGH_OUTCOME_SMALL = 3300;
+    uint32 public constant RANDOM_CURE_CHANCE = 9500;
+    uint32 public constant INDIVIDUAL_REWARD_OUTCOME_LARGE = 360000;
+    uint32 public constant INDIVIDUAL_REWARD_OUTCOME_MEDIUM = 180000;
+    uint32 public constant INDIVIDUAL_REWARD_OUTCOME_SMALL = 72000;
+    uint32 public constant GROUP_REWARD_OUTCOME_LARGE = 72000;
+    uint32 public constant GROUP_REWARD_OUTCOME_MEDIUM = 36000;
+    uint32 public constant GROUP_REWARD_OUTCOME_SMALL = 7200;
 
     // Group scoring rate will increase by 10 for every 10th member that joins, 1 member = 10, 9 members = 10, 10 members = 20, 95 members = 100
     uint32 public constant GROUP_BASE_RATE = 1;
@@ -344,12 +366,13 @@ contract DeadWillRise is ERC721A, Ownable {
         individual.lastScore = (individual.lastScore + (uint32(block.number) - individual.lastBlock) * this.getIndividualRate(tokenId,false));
         individual.lastBlock = uint32(block.number);
         uint32 _groupScore = this.getGroupScore(individual.groupNumber);
+        uint32 _totalScore = (individual.lastScore + _groupScore);
         uint32 _currentInfectionProgress = this.currentInfectionProgress();
         uint256 cureCost = FINAL_CURE_COST / cureSupply;
         
-        if((individual.lastScore + _groupScore) >= _currentInfectionProgress && individual.bitten) { // half cost if bitten but not fully zombie yet
+        if(_totalScore >= _currentInfectionProgress && individual.bitten) { // half cost if bitten but not fully zombie yet
             cureCost = cureCost / 2;
-        } else if((individual.lastScore + _groupScore) < _currentInfectionProgress) {
+        } else if(_totalScore < _currentInfectionProgress) {
             individual.lastScore = (_currentInfectionProgress + 10 * BLOCKS_PER_DAY) - _groupScore; // bump score over infection level
         } else {
             cureCost = cureCost * 5; // greedy people that don't need a cure pay 5x
@@ -384,50 +407,50 @@ contract DeadWillRise is ERC721A, Ownable {
 
         if((individual.lastScore + _groupScore) >= _currentInfectionProgress) {
             if(_riskChoice == RISK_LEVEL_LOW) {
-                if(_seed > TOTAL_MAXIMUM_LUCK * 99 / 100) {
+                if(_seed > RISK_LOW_OUTCOME_LARGE) {
                     _activityOutcome = ACTIVITY_OUTCOME_LARGE;
-                    individual.lastScore += BLOCKS_PER_DAY * 50;
-                } else if(_seed > TOTAL_MAXIMUM_LUCK * 95 / 100) {
+                    individual.lastScore += INDIVIDUAL_REWARD_OUTCOME_LARGE;
+                } else if(_seed > RISK_LOW_OUTCOME_MEDIUM) {
                     _activityOutcome = ACTIVITY_OUTCOME_MEDIUM;
-                    individual.lastScore += BLOCKS_PER_DAY * 25;
-                } else if(_seed > TOTAL_MAXIMUM_LUCK * 1 / 100) {
+                    individual.lastScore += INDIVIDUAL_REWARD_OUTCOME_MEDIUM;
+                } else if(_seed > RISK_LOW_OUTCOME_SMALL) {
                     _activityOutcome = ACTIVITY_OUTCOME_SMALL;
-                    individual.lastScore += BLOCKS_PER_DAY * 10;
+                    individual.lastScore += INDIVIDUAL_REWARD_OUTCOME_SMALL;
                 } else {
                     _activityOutcome = ACTIVITY_OUTCOME_DEVASTATED;
                     individual.bitten = true;
                 }
             } else if(_riskChoice == RISK_LEVEL_MEDIUM) {
-                if(_seed > TOTAL_MAXIMUM_LUCK * 90 / 100) {
+                if(_seed > RISK_MEDIUM_OUTCOME_LARGE) {
                     _activityOutcome = ACTIVITY_OUTCOME_LARGE;
-                    individual.lastScore += BLOCKS_PER_DAY * 50;
-                } else if(_seed > TOTAL_MAXIMUM_LUCK * 75 / 100) {
+                    individual.lastScore += INDIVIDUAL_REWARD_OUTCOME_LARGE;
+                } else if(_seed > RISK_MEDIUM_OUTCOME_MEDIUM) {
                     _activityOutcome = ACTIVITY_OUTCOME_MEDIUM;
-                    individual.lastScore += BLOCKS_PER_DAY * 25;
-                } else if(_seed > TOTAL_MAXIMUM_LUCK * 10 / 100) {
+                    individual.lastScore += INDIVIDUAL_REWARD_OUTCOME_MEDIUM;
+                } else if(_seed > RISK_MEDIUM_OUTCOME_SMALL) {
                     _activityOutcome = ACTIVITY_OUTCOME_SMALL;
-                    individual.lastScore += BLOCKS_PER_DAY * 10;
+                    individual.lastScore += INDIVIDUAL_REWARD_OUTCOME_SMALL;
                 } else {
                     _activityOutcome = ACTIVITY_OUTCOME_DEVASTATED;
                     individual.bitten = true;
                 }
             } else if(_riskChoice == RISK_LEVEL_HIGH) {
-                if(_seed > TOTAL_MAXIMUM_LUCK * 75 / 100) {
+                if(_seed > RISK_HIGH_OUTCOME_LARGE) {
                     _activityOutcome = ACTIVITY_OUTCOME_LARGE;
-                    individual.lastScore += BLOCKS_PER_DAY * 50;
-                } else if(_seed > TOTAL_MAXIMUM_LUCK * 50 / 100) {
+                    individual.lastScore += INDIVIDUAL_REWARD_OUTCOME_LARGE;
+                } else if(_seed > RISK_HIGH_OUTCOME_MEDIUM) {
                     _activityOutcome = ACTIVITY_OUTCOME_MEDIUM;
-                    individual.lastScore += BLOCKS_PER_DAY * 25;
-                } else if(_seed > TOTAL_MAXIMUM_LUCK * 33 / 100) {
+                    individual.lastScore += INDIVIDUAL_REWARD_OUTCOME_MEDIUM;
+                } else if(_seed > RISK_HIGH_OUTCOME_SMALL) {
                     _activityOutcome = ACTIVITY_OUTCOME_SMALL;
-                    individual.lastScore += BLOCKS_PER_DAY * 10;
+                    individual.lastScore += INDIVIDUAL_REWARD_OUTCOME_SMALL;
                 } else {
                     _activityOutcome = ACTIVITY_OUTCOME_DEVASTATED;
                     individual.bitten = true;
                 }
             }
         } else { // already a zombie, chance to recover
-            if(_seed > TOTAL_MAXIMUM_LUCK * 95 / 100) {
+            if(_seed > RANDOM_CURE_CHANCE) {
                 _riskChoice = 1;
                 individual.lastScore = (_currentInfectionProgress + 3 * BLOCKS_PER_DAY) - _groupScore;
                 _activityOutcome = ACTIVITY_OUTCOME_CURED;
@@ -468,43 +491,43 @@ contract DeadWillRise is ERC721A, Ownable {
         uint32 _seed = (uint32(uint256(keccak256(abi.encodePacked(block.timestamp,block.difficulty,_groupNumber)))) % TOTAL_MAXIMUM_LUCK);
 
         if(_riskChoice == RISK_LEVEL_LOW) {
-            if(_seed > TOTAL_MAXIMUM_LUCK * 99 / 100) {
+            if(_seed > RISK_LOW_OUTCOME_LARGE) {
                 _activityOutcome = ACTIVITY_OUTCOME_LARGE;
-                group.lastScore += BLOCKS_PER_DAY * 10;
-            } else if(_seed > TOTAL_MAXIMUM_LUCK * 95 / 100) {
+                group.lastScore += GROUP_REWARD_OUTCOME_LARGE;
+            } else if(_seed > RISK_LOW_OUTCOME_MEDIUM) {
                 _activityOutcome = ACTIVITY_OUTCOME_MEDIUM;
-                group.lastScore += BLOCKS_PER_DAY * 5;
-            } else if(_seed > TOTAL_MAXIMUM_LUCK * 1 / 100) {
+                group.lastScore += GROUP_REWARD_OUTCOME_MEDIUM;
+            } else if(_seed > RISK_LOW_OUTCOME_SMALL) {
                 _activityOutcome = ACTIVITY_OUTCOME_SMALL;
-                group.lastScore += BLOCKS_PER_DAY * 1;
+                group.lastScore += GROUP_REWARD_OUTCOME_SMALL;
             } else {
                 _activityOutcome = ACTIVITY_OUTCOME_DEVASTATED;
                 group.lastScore /= 2;
             }
         } else if(_riskChoice == RISK_LEVEL_MEDIUM) {
-            if(_seed > TOTAL_MAXIMUM_LUCK * 90 / 100) {
+            if(_seed > RISK_MEDIUM_OUTCOME_LARGE) {
                 _activityOutcome = ACTIVITY_OUTCOME_LARGE;
-                group.lastScore += BLOCKS_PER_DAY * 10;
-            } else if(_seed > TOTAL_MAXIMUM_LUCK * 75 / 100) {
+                group.lastScore += GROUP_REWARD_OUTCOME_LARGE;
+            } else if(_seed > RISK_MEDIUM_OUTCOME_MEDIUM) {
                 _activityOutcome = ACTIVITY_OUTCOME_MEDIUM;
-                group.lastScore += BLOCKS_PER_DAY * 5;
-            } else if(_seed > TOTAL_MAXIMUM_LUCK * 10 / 100) {
+                group.lastScore += GROUP_REWARD_OUTCOME_MEDIUM;
+            } else if(_seed > RISK_MEDIUM_OUTCOME_SMALL) {
                 _activityOutcome = ACTIVITY_OUTCOME_SMALL;
-                group.lastScore += BLOCKS_PER_DAY * 1;
+                group.lastScore += GROUP_REWARD_OUTCOME_SMALL;
             } else {
                 _activityOutcome = ACTIVITY_OUTCOME_DEVASTATED;
                 group.lastScore /= 2;
             }
         } else if(_riskChoice == RISK_LEVEL_HIGH) {
-            if(_seed > TOTAL_MAXIMUM_LUCK * 75 / 100) {
+            if(_seed > RISK_HIGH_OUTCOME_LARGE) {
                 _activityOutcome = ACTIVITY_OUTCOME_LARGE;
-                group.lastScore += BLOCKS_PER_DAY * 10;
-            } else if(_seed > TOTAL_MAXIMUM_LUCK * 50 / 100) {
+                group.lastScore += GROUP_REWARD_OUTCOME_LARGE;
+            } else if(_seed > RISK_HIGH_OUTCOME_MEDIUM) {
                 _activityOutcome = ACTIVITY_OUTCOME_MEDIUM;
-                group.lastScore += BLOCKS_PER_DAY * 5;
-            } else if(_seed > TOTAL_MAXIMUM_LUCK * 33 / 100) {
+                group.lastScore += GROUP_REWARD_OUTCOME_MEDIUM;
+            } else if(_seed > RISK_HIGH_OUTCOME_SMALL) {
                 _activityOutcome = ACTIVITY_OUTCOME_SMALL;
-                group.lastScore += BLOCKS_PER_DAY * 1;
+                group.lastScore += GROUP_REWARD_OUTCOME_SMALL;
             } else {
                 _activityOutcome = ACTIVITY_OUTCOME_DEVASTATED;
                 group.lastScore /= 2;
