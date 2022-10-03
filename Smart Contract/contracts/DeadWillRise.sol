@@ -91,7 +91,6 @@ contract DeadWillRise is ERC721A, Ownable {
     uint32 public constant GROUP_BASE_RATE = 1;
     uint32 public constant GROUP_VARIABLE_RATE = 10;
     uint32 public constant GROUP_RATE_MULTIPLIER = 10;
-    uint32 public constant GROUP_RATE_DENOMINATOR = GROUP_VARIABLE_RATE + GROUP_BASE_RATE;
 
     uint256 public constant MAX_SUPPLY = 5000;
 
@@ -326,7 +325,7 @@ contract DeadWillRise is ERC721A, Ownable {
         if(eventStartTime == 0) return 0;
         if(_groupNumber == 0 || _groupNumber > groupsRegistered) return 0;
         uint32 _totalMembers = groupRecord[uint256(_groupNumber)].totalMembers;
-        return (_totalMembers / GROUP_RATE_DENOMINATOR) * GROUP_RATE_MULTIPLIER;
+        return (_totalMembers / GROUP_VARIABLE_RATE + GROUP_BASE_RATE) * GROUP_RATE_MULTIPLIER;
     }
 
     /** DAILY ACTIVITY FUNCTIONS 
