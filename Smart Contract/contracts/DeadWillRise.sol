@@ -51,6 +51,7 @@ contract DeadWillRise is ERC721A, Ownable {
     uint256 public constant GROUP_DAILY_ACTIVITY_COST = 0.01 ether;
     uint256 public constant GROUP_REGISTRATION_COST = 0.1 ether;
     uint256 public constant FINAL_CURE_COST = 10 ether;
+    uint256 public constant CURE_PROGRESS_INCREMENT = 10 * BLOCKS_PER_DAY;
 
     uint8 public constant RISK_LEVEL_LOW = 1;
     uint8 public constant RISK_LEVEL_MEDIUM = 2;
@@ -111,6 +112,7 @@ contract DeadWillRise is ERC721A, Ownable {
     uint32 public winningGroupNumber; // declared at end of game
     uint32 public constant BLOCKS_PER_DAY = 7200;
     uint32 public constant WITHDRAWAL_DELAY = BLOCKS_PER_DAY / 2; // blocks to wait after winners declared for withdrawal
+    uint32 public constant BLOCKS_PER_DAY_INCREMENT = 3 * BLOCKS_PER_DAY;
 
     InfectionData public infectionProgress; // current infection data - currentProgress = lastProgress + (block.number - lastBlock) * infectionRate
     mapping(address => uint256) public groupNumbers; // key = ERC-721 collection address, value = group number
@@ -373,7 +375,8 @@ contract DeadWillRise is ERC721A, Ownable {
         if(_totalScore >= _currentInfectionProgress && individual.bitten) { // half cost if bitten but not fully zombie yet
             cureCost = cureCost / 2;
         } else if(_totalScore < _currentInfectionProgress) {
-            individual.lastScore = (_currentInfectionProgress + 10 * BLOCKS_PER_DAY) - _groupScore; // bump score over infection level
+            // here
+            individual.lastScore = (_currentInfectionProgress + CURE_PROGRESS_INCREMENT) - _groupScore; // bump score over infection level
         } else {
             cureCost = cureCost * 5; // greedy people that don't need a cure pay 5x
         }
@@ -452,7 +455,7 @@ contract DeadWillRise is ERC721A, Ownable {
         } else { // already a zombie, chance to recover
             if(_seed > RANDOM_CURE_CHANCE) {
                 _riskChoice = 1;
-                individual.lastScore = (_currentInfectionProgress + 3 * BLOCKS_PER_DAY) - _groupScore;
+                individual.lastScore = (_currentInfectionProgress + BLOCKS_PER_DAY_INCREMENT) - _groupScore;
                 _activityOutcome = ACTIVITY_OUTCOME_CURED;
                 individual.bitten = false;
             } else {
