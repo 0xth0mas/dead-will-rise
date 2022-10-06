@@ -51,7 +51,7 @@ contract DeadWillRise is ERC721A, Ownable {
     uint256 public constant GROUP_DAILY_ACTIVITY_COST = 0.01 ether;
     uint256 public constant GROUP_REGISTRATION_COST = 0.1 ether;
     uint256 public constant FINAL_CURE_COST = 10 ether;
-    uint256 public constant CURE_PROGRESS_INCREMENT = 10 * BLOCKS_PER_DAY;
+    uint32 public constant CURE_PROGRESS_INCREMENT = 72000;
 
     uint8 public constant RISK_LEVEL_LOW = 1;
     uint8 public constant RISK_LEVEL_MEDIUM = 2;
@@ -83,14 +83,14 @@ contract DeadWillRise is ERC721A, Ownable {
     uint32 public constant INDIVIDUAL_REWARD_OUTCOME_LARGE = 360000;
     uint32 public constant INDIVIDUAL_REWARD_OUTCOME_MEDIUM = 180000;
     uint32 public constant INDIVIDUAL_REWARD_OUTCOME_SMALL = 72000;
-    uint32 public constant GROUP_REWARD_OUTCOME_LARGE = 72000;
-    uint32 public constant GROUP_REWARD_OUTCOME_MEDIUM = 36000;
-    uint32 public constant GROUP_REWARD_OUTCOME_SMALL = 7200;
+    uint32 public constant GROUP_REWARD_OUTCOME_LARGE = 36000;
+    uint32 public constant GROUP_REWARD_OUTCOME_MEDIUM = 18000;
+    uint32 public constant GROUP_REWARD_OUTCOME_SMALL = 3600;
 
-    // Group scoring rate will increase by 10 for every 10th member that joins, 1 member = 10, 9 members = 10, 10 members = 20, 95 members = 100
+    // Group scoring rate will increase by 1 for every 10th member that joins, 1 member = 1, 9 members = 1, 10 members = 2, 95 members = 10
     uint32 public constant GROUP_BASE_RATE = 1;
     uint32 public constant GROUP_VARIABLE_RATE = 10;
-    uint32 public constant GROUP_RATE_MULTIPLIER = 10;
+    uint32 public constant GROUP_RATE_MULTIPLIER = 1;
 
     uint256 public constant MAX_SUPPLY = 5000;
 
@@ -111,8 +111,8 @@ contract DeadWillRise is ERC721A, Ownable {
     uint32 public lastSurvivorTokenID; // declared at end of game
     uint32 public winningGroupNumber; // declared at end of game
     uint32 public constant BLOCKS_PER_DAY = 7200;
-    uint32 public constant WITHDRAWAL_DELAY = BLOCKS_PER_DAY / 2; // blocks to wait after winners declared for withdrawal
-    uint32 public constant BLOCKS_PER_DAY_INCREMENT = 3 * BLOCKS_PER_DAY;
+    uint32 public constant WITHDRAWAL_DELAY = 3600; // blocks to wait after winners declared for withdrawal
+    uint32 public constant LATE_JOINER_PROGRESS = 21600;
 
     InfectionData public infectionProgress; // current infection data - currentProgress = lastProgress + (block.number - lastBlock) * infectionRate
     mapping(address => uint256) public groupNumbers; // key = ERC-721 collection address, value = group number
@@ -375,7 +375,6 @@ contract DeadWillRise is ERC721A, Ownable {
         if(_totalScore >= _currentInfectionProgress && individual.bitten) { // half cost if bitten but not fully zombie yet
             cureCost = cureCost / 2;
         } else if(_totalScore < _currentInfectionProgress) {
-            // here
             individual.lastScore = (_currentInfectionProgress + CURE_PROGRESS_INCREMENT) - _groupScore; // bump score over infection level
         } else {
             cureCost = cureCost * 5; // greedy people that don't need a cure pay 5x
@@ -455,7 +454,7 @@ contract DeadWillRise is ERC721A, Ownable {
         } else { // already a zombie, chance to recover
             if(_seed > RANDOM_CURE_CHANCE) {
                 _riskChoice = 1;
-                individual.lastScore = (_currentInfectionProgress + BLOCKS_PER_DAY_INCREMENT) - _groupScore;
+                individual.lastScore = (_currentInfectionProgress + LATE_JOINER_PROGRESS) - _groupScore;
                 _activityOutcome = ACTIVITY_OUTCOME_CURED;
                 individual.bitten = false;
             } else {
@@ -591,15 +590,9 @@ contract DeadWillRise is ERC721A, Ownable {
 
     /** MINTING FUNCTIONS
     */
-    function setGroupRegistrationOpen(bool _open) external onlyOwner {
-        groupRegistrationOpen = _open;
-    }
-
-    function setPublicMintOpen(bool _open) external onlyOwner {
-        publicMintOpen = _open;
-    }
-
-    function setMintingMaximums(uint32 _maxPerWalletPerGroup, uint32 _maxPerGroup) external onlyOwner {
+    function setMintingVariables(bool _groupOpen, bool _publicOpen, uint32 _maxPerWalletPerGroup, uint32 _maxPerGroup) external onlyOwner {
+        groupRegistrationOpen = _groupOpen;
+        publicMintOpen = _publicOpen;
         maxPerWalletPerGroup = _maxPerWalletPerGroup;
         maxPerGroup = _maxPerGroup;
     }
