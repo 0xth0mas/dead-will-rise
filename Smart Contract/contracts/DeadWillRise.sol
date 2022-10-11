@@ -18,8 +18,11 @@ import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 contract DeadWillRise is ERC721A, Ownable {
 
     event IndividualDailyActivity(uint256 tokenId, uint256 currentDay, uint256 riskChoice, uint256 activityOutcome);
+    event IndividualCured(uint256 tokenId);
     event GroupDailyActivity(uint256 groupNum, uint256 currentDay, uint256 riskChoice, uint256 activityOutcome);
     event InfectionSpreading(uint256 currentProgress, uint256 infectionRate);
+    event GroupRegistered(uint256 groupNum, address collectionAddress, address groupManager);
+    event GroupTransferred(uint256 groupNum, address collectionAddress, address groupManager);
 
     struct IndividualData {
         uint32 lastBlock;
@@ -51,52 +54,52 @@ contract DeadWillRise is ERC721A, Ownable {
     uint256 public constant GROUP_DAILY_ACTIVITY_COST = 0.01 ether;
     uint256 public constant GROUP_REGISTRATION_COST = 0.1 ether;
     uint256 public constant FINAL_CURE_COST = 10 ether;
-    uint32 public constant CURE_PROGRESS_INCREMENT = 72000;
+    uint32 constant CURE_PROGRESS_INCREMENT = 72000;
 
-    uint8 public constant RISK_LEVEL_LOW = 1;
-    uint8 public constant RISK_LEVEL_MEDIUM = 2;
-    uint8 public constant RISK_LEVEL_HIGH = 3;
-    uint8 public constant ACTIVITY_OUTCOME_SMALL = 1;
-    uint8 public constant ACTIVITY_OUTCOME_MEDIUM = 2;
-    uint8 public constant ACTIVITY_OUTCOME_LARGE = 3;
-    uint8 public constant ACTIVITY_OUTCOME_DEVASTATED = 4;
-    uint8 public constant ACTIVITY_OUTCOME_CURED = 5;
-    uint8 public constant ACTIVITY_OUTCOME_STILL_A_ZOMBIE = 6;
+    uint8 constant RISK_LEVEL_LOW = 1;
+    uint8 constant RISK_LEVEL_MEDIUM = 2;
+    uint8 constant RISK_LEVEL_HIGH = 3;
+    uint8 constant ACTIVITY_OUTCOME_SMALL = 1;
+    uint8 constant ACTIVITY_OUTCOME_MEDIUM = 2;
+    uint8 constant ACTIVITY_OUTCOME_LARGE = 3;
+    uint8 constant ACTIVITY_OUTCOME_DEVASTATED = 4;
+    uint8 constant ACTIVITY_OUTCOME_CURED = 5;
+    uint8 constant ACTIVITY_OUTCOME_STILL_A_ZOMBIE = 6;
 
     uint8 public constant MAX_DAY = 19;
 
     // Individuals will have a rate between 100-150 if unbitten, 25-37 if bitten
-    uint32 public constant INDIVIDUAL_BASE_RATE = 100;
-    uint32 public constant INDIVIDUAL_VARIABLE_RATE = 50;
-    uint32 public constant INDIVIDUAL_MAXIMUM_LUCK = 1000; // luck used to determine outcome of activities
-    uint32 public constant TOTAL_MAXIMUM_LUCK = 10000; // luck used to determine outcome of activities
-    uint32 public constant RISK_LOW_OUTCOME_LARGE = 9900;
-    uint32 public constant RISK_LOW_OUTCOME_MEDIUM = 9500;
-    uint32 public constant RISK_LOW_OUTCOME_SMALL = 100;
-    uint32 public constant RISK_MEDIUM_OUTCOME_LARGE = 9000;
-    uint32 public constant RISK_MEDIUM_OUTCOME_MEDIUM = 7500;
-    uint32 public constant RISK_MEDIUM_OUTCOME_SMALL = 1000;
-    uint32 public constant RISK_HIGH_OUTCOME_LARGE = 7500;
-    uint32 public constant RISK_HIGH_OUTCOME_MEDIUM = 5000;
-    uint32 public constant RISK_HIGH_OUTCOME_SMALL = 3300;
-    uint32 public constant RANDOM_CURE_CHANCE = 9500;
-    uint32 public constant INDIVIDUAL_REWARD_OUTCOME_LARGE = 360000;
-    uint32 public constant INDIVIDUAL_REWARD_OUTCOME_MEDIUM = 180000;
-    uint32 public constant INDIVIDUAL_REWARD_OUTCOME_SMALL = 72000;
-    uint32 public constant GROUP_REWARD_OUTCOME_LARGE = 36000;
-    uint32 public constant GROUP_REWARD_OUTCOME_MEDIUM = 18000;
-    uint32 public constant GROUP_REWARD_OUTCOME_SMALL = 3600;
+    uint32 constant INDIVIDUAL_BASE_RATE = 100;
+    uint32 constant INDIVIDUAL_VARIABLE_RATE = 50;
+    uint32 constant INDIVIDUAL_MAXIMUM_LUCK = 1000; // luck used to determine outcome of activities
+    uint32 constant TOTAL_MAXIMUM_LUCK = 10000; // luck used to determine outcome of activities
+    uint32 constant RISK_LOW_OUTCOME_LARGE = 9900;
+    uint32 constant RISK_LOW_OUTCOME_MEDIUM = 9500;
+    uint32 constant RISK_LOW_OUTCOME_SMALL = 100;
+    uint32 constant RISK_MEDIUM_OUTCOME_LARGE = 9000;
+    uint32 constant RISK_MEDIUM_OUTCOME_MEDIUM = 7500;
+    uint32 constant RISK_MEDIUM_OUTCOME_SMALL = 1000;
+    uint32 constant RISK_HIGH_OUTCOME_LARGE = 7500;
+    uint32 constant RISK_HIGH_OUTCOME_MEDIUM = 5000;
+    uint32 constant RISK_HIGH_OUTCOME_SMALL = 3300;
+    uint32 constant RANDOM_CURE_CHANCE = 9500;
+    uint32 constant INDIVIDUAL_REWARD_OUTCOME_LARGE = 360000;
+    uint32 constant INDIVIDUAL_REWARD_OUTCOME_MEDIUM = 180000;
+    uint32 constant INDIVIDUAL_REWARD_OUTCOME_SMALL = 72000;
+    uint32 constant GROUP_REWARD_OUTCOME_LARGE = 36000;
+    uint32 constant GROUP_REWARD_OUTCOME_MEDIUM = 18000;
+    uint32 constant GROUP_REWARD_OUTCOME_SMALL = 3600;
 
     // Group scoring rate will increase by 1 for every 10th member that joins, 1 member = 1, 9 members = 1, 10 members = 2, 95 members = 10
-    uint32 public constant GROUP_BASE_RATE = 1;
-    uint32 public constant GROUP_VARIABLE_RATE = 10;
-    uint32 public constant GROUP_RATE_MULTIPLIER = 1;
+    uint32 constant GROUP_BASE_RATE = 1;
+    uint32 constant GROUP_VARIABLE_RATE = 10;
+    uint32 constant GROUP_RATE_MULTIPLIER = 1;
 
     uint256 public constant MAX_SUPPLY = 5000;
 
-    bool eventOver;
-    uint64 eventStartTime;
-    uint32 eventStartBlock;
+    bool public eventOver;
+    uint64 public eventStartTime;
+    uint32 public eventStartBlock;
 
     uint32 public collectionSeed; // random seed set at start of game, collection seed == 0 means event not started
     uint32 public groupsRegistered; // current count of groups registered for Dead Will Rise
@@ -110,9 +113,9 @@ contract DeadWillRise is ERC721A, Ownable {
 
     uint32 public lastSurvivorTokenID; // declared at end of game
     uint32 public winningGroupNumber; // declared at end of game
-    uint32 public constant BLOCKS_PER_DAY = 7200;
-    uint32 public constant WITHDRAWAL_DELAY = 3600; // blocks to wait after winners declared for withdrawal
-    uint32 public constant LATE_JOINER_PROGRESS = 21600;
+    uint32 constant BLOCKS_PER_DAY = 7200;
+    uint32 constant WITHDRAWAL_DELAY = 3600; // blocks to wait after winners declared for withdrawal
+    uint32 constant LATE_JOINER_PROGRESS = 21600;
 
     InfectionData public infectionProgress; // current infection data - currentProgress = lastProgress + (block.number - lastBlock) * infectionRate
     mapping(address => uint256) public groupNumbers; // key = ERC-721 collection address, value = group number
@@ -146,11 +149,14 @@ contract DeadWillRise is ERC721A, Ownable {
     }
 
     modifier canWithdraw() {
-        require(lastSurvivorTokenID > 0 && winningGroupNumber > 0 && uint32(block.number) > (infectionProgress.lastBlock + WITHDRAWAL_DELAY));
+        require(uint32(block.number) > (infectionProgress.lastBlock + WITHDRAWAL_DELAY));
         _;
     }
 
-    constructor() ERC721A("Dead Will Rise", "DWR") { }
+    constructor(string memory mContractURI, string memory mPlaceholderURI) ERC721A("Dead Will Rise", "DWR") {
+        _contractURI = mContractURI;
+        _placeholderURI = mPlaceholderURI;
+    }
 
     // to receive royalties and/or donations
     receive() external payable { }
@@ -231,7 +237,9 @@ contract DeadWillRise is ERC721A, Ownable {
 
     uint256 public totalWithdrawn;
     uint256 public totalSwept;
-    mapping(address => uint256) public balances;
+    uint256 public hostBalance;
+    uint256 public groupBalance;
+    uint256 public survivorBalance;
 
     /** Sweep rewards into a balance mapping first to avoid survivor/group owner set to contract with revert
     */
@@ -243,22 +251,31 @@ contract DeadWillRise is ERC721A, Ownable {
         uint256 groupShare = currentPool * 20 / 100;
         uint256 hostShare = (currentPool - survivorShare - groupShare);
 
-        address survivorPayoutAddress = ownerOf(lastSurvivorTokenID);
-        address groupPayoutAddress = groupManager[winningGroupNumber];
-        address hostPayoutAddress = owner();
-
-        balances[survivorPayoutAddress] += survivorShare;
-        balances[groupPayoutAddress] += groupShare;
-        balances[hostPayoutAddress] += hostShare;
+        hostBalance += hostShare;
+        groupBalance += groupShare;
+        survivorBalance += survivorShare;
     }
 
-    function withdraw(address recipient) external onlyOwner {
-        uint256 recipientBalance = balances[recipient];
+    function withdraw(uint256 share) external onlyOwner {
+        address recipient;
+        uint256 recipientBalance;
+        if(share == 1) {
+            recipient = owner();
+            recipientBalance = hostBalance;
+            hostBalance = 0;
+        } else if(share == 2) {
+            recipient = groupManager[winningGroupNumber];
+            recipientBalance = groupBalance;
+            groupBalance = 0;
+        } else if(share == 3) {
+            recipient = ownerOf(lastSurvivorTokenID);
+            recipientBalance = survivorBalance;
+            survivorBalance = 0;
+        }
         require(recipientBalance > 0);
         (bool sent, ) = payable(recipient).call{value: recipientBalance}("");
         require(sent);
         totalWithdrawn = totalWithdrawn + recipientBalance;
-        balances[recipient] = 0;
     }
 
     /** SCORE FUNCTIONS 
@@ -341,7 +358,7 @@ contract DeadWillRise is ERC721A, Ownable {
         uint256 numRecords = this.currentDay();
         ActivityRecord[] memory records = new ActivityRecord[](numRecords);
         for(uint256 i = 1;i <= numRecords;i++) {
-            records[i] = individualActivity[((tokenId << 32) + i)];
+            records[i-1] = individualActivity[((tokenId << 32) + i)];
         }
         return records;
     }
@@ -350,7 +367,7 @@ contract DeadWillRise is ERC721A, Ownable {
         uint256 numRecords = this.currentDay();
         ActivityRecord[] memory records = new ActivityRecord[](numRecords);
         for(uint256 i = 1;i <= numRecords;i++) {
-            records[i] = groupActivity[((_groupNumber << 32) + i)];
+            records[i-1] = groupActivity[((uint256(_groupNumber) << 32) + i)];
         }
         return records;
     }
@@ -384,9 +401,10 @@ contract DeadWillRise is ERC721A, Ownable {
         cureSupply = cureSupply - 1;
         individualRecord[tokenId] = individual;
         require(msg.value >= cureCost);
+        emit IndividualCured(tokenId);
     }
 
-    function dailyActivityIndividual(uint256 tokenId, uint32 _riskChoice) external payable eventInProgress returns (uint32) {
+    function dailyActivityIndividual(uint256 tokenId, uint32 _riskChoice) external payable eventInProgress {
         require(_riskChoice >= RISK_LEVEL_LOW && _riskChoice <= RISK_LEVEL_HIGH);
         require(msg.value >= INDIVIDUAL_DAILY_ACTIVITY_COST);
         require(ownerOf(tokenId) == msg.sender);
@@ -470,11 +488,9 @@ contract DeadWillRise is ERC721A, Ownable {
         individualRecord[tokenId] = individual;
 
         emit IndividualDailyActivity(tokenId, _currentDay, _riskChoice, _activityOutcome);
-
-        return _activityOutcome;
     }
 
-    function dailyActivityGroup(uint32 _groupNumber, uint32 _riskChoice) external payable eventInProgress returns (uint32) {
+    function dailyActivityGroup(uint32 _groupNumber, uint32 _riskChoice) external payable eventInProgress {
         require(_riskChoice >= RISK_LEVEL_LOW && _riskChoice <= RISK_LEVEL_HIGH);
         require(msg.value >= GROUP_DAILY_ACTIVITY_COST);
         require(groupManager[_groupNumber] == msg.sender);
@@ -543,8 +559,6 @@ contract DeadWillRise is ERC721A, Ownable {
         groupRecord[uint256(_groupNumber)] = group;
 
         emit GroupDailyActivity(_groupNumber, _currentDay, _riskChoice, _activityOutcome);
-
-        return _activityOutcome;
     }
 
     /** GROUP MANAGEMENT FUNCTIONS
@@ -569,23 +583,17 @@ contract DeadWillRise is ERC721A, Ownable {
         groupNumbers[_collectionAddress] = newGroupNumber;
         groupRecord[newGroupNumber] = newGroup;
         groupManager[newGroupNumber] = msg.sender;
-    }
-    
-    /** Allow collection owner to claim management of group that someone else registered
-    */
-    function claimGroupByOwner(address _collectionAddress) external payable {
-        require(msg.value >= GROUP_REGISTRATION_COST);
-        address _collectionOwner = Ownable(_collectionAddress).owner();
-        uint256 _groupNumber = groupNumbers[_collectionAddress];
-        require(_collectionOwner == msg.sender || delegateCash.checkDelegateForAll(msg.sender, _collectionOwner) || delegateCash.checkDelegateForContract(msg.sender, _collectionOwner, _collectionAddress));
-        groupManager[_groupNumber] = msg.sender;
+        emit GroupRegistered(newGroupNumber, _collectionAddress, msg.sender);
     }
 
     /** Transfer management of a group to a new user
+    *   Current group manager can transfer ownership anytime
     */
     function transferGroupManagement(address _collectionAddress, address _newManager) external {
-        require(groupManager[groupNumbers[_collectionAddress]] == msg.sender);
-        groupManager[groupNumbers[_collectionAddress]] = _newManager;
+        uint256 _groupNumber = groupNumbers[_collectionAddress];
+        require(groupManager[_groupNumber] == msg.sender);
+        groupManager[_groupNumber] = _newManager;
+        emit GroupTransferred(_groupNumber, _collectionAddress, _newManager);
     }
 
     /** MINTING FUNCTIONS
@@ -704,6 +712,21 @@ contract DeadWillRise is ERC721A, Ownable {
             return bytes(baseURI).length > 0
                 ? string(abi.encodePacked(baseURI, infectionStatus, _toString(tokenId)))
                 : "";
+        }
+    }
+
+    function tokensOfOwner(address owner) external view returns (uint256[] memory) {
+        unchecked {
+            uint256 tokenIdsIdx;
+            uint256 tokenIdsLength = balanceOf(owner);
+            uint256[] memory tokenIds = new uint256[](tokenIdsLength);
+            for (uint256 i = _startTokenId(); tokenIdsIdx != tokenIdsLength; ++i) {
+                if (ownerOf(i) == owner) {
+                    uint256 _individualScore = this.getIndividualScore(i);
+                    tokenIds[tokenIdsIdx++] = (i<<32)+_individualScore;
+                }
+            }
+            return tokenIds;
         }
     }
 }
